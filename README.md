@@ -11,19 +11,13 @@ It uses API Gateway, DynamoDB and Lambda.
 
 1. Install the [Serverless Framework](https://github.com/serverless/serverless), python3 and pip
 
-2. Install the dependencies with `pip3 install -t vendored/ -r requirements.txt`
-
-3. Run the deploy command:
+2. Run the deploy command:
 ```
-sls deploy --region eu-west-1 --bucket your-bucket --verify-token YOUROWNVERIFYTOKEN --slack-channel your-slack-channel --slack-token your-slack-bot-token
+sls deploy --region eu-west-1
 ```
 
 Where:
 - `region` is your chosen AWS region
-- `bucket` is a pre-existing S3 bucket where the Serverless Framework can store state
-- `verify-token` is a made up token which matches your Alert Manager configuration (see below)
-- `slack-channel` is the name of your Slack channel
-- `slack-token` is a Slack bot token with access to post to the Slack channel ([see the Slack documentation](https://api.slack.com/authentication/basics#calling))
 
 ## Alert Manager configuration
 

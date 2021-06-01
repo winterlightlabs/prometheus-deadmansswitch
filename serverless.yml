@@ -1,12 +1,22 @@
 service: prometheus-deadmansswitch
 
+plugins:
+  - serverless-deployment-bucket
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+
 provider:
   name: aws
   runtime: python3.8
   region: ${opt:region,'us-east-1'}
   logRetentionInDays: 14 # Set the default RetentionInDays for a CloudWatch LogGroup
-  deploymentBucket: ${opt:bucket}
-  stage: prod
+  deploymentBucket:
+    name: winterlight-serverless-${self:provider.region}-deploys
+    serverSideEncryption: AES256
+  stage: ${opt:stage,'prod'}
   iamRoleStatements:
     - Effect: 'Allow'
       Action:
@@ -42,7 +52,7 @@ functions:
     name: prometheus-deadmansswitch-api
     handler: api.webhook
     environment:
-      VERIFY_TOKEN: ${opt:verify-token}
+      VERIFY_TOKEN: ${ssm:/common/infra/dead_mans_switch_token~true}
       ENVIRONMENT_NAME: 'prometheus-deadmansswitch'
     memorySize: 256
     events:
@@ -60,19 +70,12 @@ functions:
     handler: checker.check
     environment:
       ENVIRONMENT_NAME: 'prometheus-deadmansswitch'
-      MAX_TIME_SECONDS: '300'
-      SLACK_CHANNEL: ${opt:slack-channel}
-      SLACK_TOKEN: ${opt:slack-token}
+      MAX_TIME_SECONDS: '900'
+      SLACK_CHANNEL: '#alerts-warning'
+      SLACK_URL: ${ssm:/common/infra/slack_alert_warning_url~true}
       # SCALE_DOWN_CLUSTERS: 'your-dev-cluster'
       # SCALE_DOWN_CRON: '0 19 * * 1-5'
       # SCALE_UP_CRON: '30 6 * * 1-5'
     memorySize: 256
     events:
-      - schedule: rate(2 minutes)
-
-package:
-  exclude:
-    - "**"
-  include:
-    - "*.py"
-    - "vendored/**"
+      - schedule: rate(20 minutes)

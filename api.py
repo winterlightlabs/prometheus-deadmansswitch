@@ -13,8 +13,8 @@ import boto3
 from botocore.exceptions import ClientError
 
 # Set up our logger
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 REQUIRED_ENVIRONMENT_VARIABLES = ['ENVIRONMENT_NAME', 'VERIFY_TOKEN']
 for env_var in REQUIRED_ENVIRONMENT_VARIABLES:

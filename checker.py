@@ -2,29 +2,27 @@
 Prometheus Monitor Checker
 
 Runs on a schedule and sends an alert to slack if any of the Prometheus Clusters stored in DynamoDB have failed to check
-in for over 5 minutes. Also sets a flag in DynamoDB so a recovery message can be sent.
+in for over 15 minutes. Also sets a flag in DynamoDB so a recovery message can be sent.
 
 """
 import sys
 import time
 import os
 import logging
+import json
 from datetime import datetime
 
 import boto3
 from botocore.exceptions import ClientError
 
-here = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(here, "./vendored"))
 import requests
 from croniter import croniter
 
 # Set up our logger
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
-
-REQUIRED_ENVIRONMENT_VARIABLES = ['ENVIRONMENT_NAME', 'MAX_TIME_SECONDS', 'SLACK_CHANNEL', 'SLACK_TOKEN']
+REQUIRED_ENVIRONMENT_VARIABLES = ['ENVIRONMENT_NAME', 'MAX_TIME_SECONDS', 'SLACK_CHANNEL', 'SLACK_URL']
 for env_var in REQUIRED_ENVIRONMENT_VARIABLES:
     if env_var not in os.environ:
         logger.error(f'{env_var} is a required environment variable')
@@ -33,7 +31,7 @@ for env_var in REQUIRED_ENVIRONMENT_VARIABLES:
 ENVIRONMENT_NAME = os.environ['ENVIRONMENT_NAME']
 MAX_TIME_SECONDS = os.environ['MAX_TIME_SECONDS']
 SLACK_CHANNEL = os.environ['SLACK_CHANNEL']
-SLACK_TOKEN = os.environ['SLACK_TOKEN']
+SLACK_URL = os.environ['SLACK_URL']
 
 SCALE_DOWN_CLUSTERS = []
 SCALE_UP_CRON = ""
@@ -146,7 +144,7 @@ def send_slack_notification(notification_text, error=True):
     """
     if error:
         slack_text = '*Prometheus Instance Not Responding*\n' \
-                     'A Prometheus instance has not checked in for over 5 minutes\n' \
+                     'A Prometheus instance has not checked in for over 15 minutes\n' \
                      + notification_text
     else:
         slack_text = '*Prometheus Instance Recovered*\n' \
@@ -154,7 +152,6 @@ def send_slack_notification(notification_text, error=True):
                      + notification_text
 
     json_message = {
-        'token': SLACK_TOKEN,
         'channel': SLACK_CHANNEL,
         'as_user': 'false',
         'icon_emoji': ':computer:',
@@ -163,7 +160,8 @@ def send_slack_notification(notification_text, error=True):
     }
 
     try:
-        requests.post('https://slack.com/api/chat.postMessage', json_message)
+        response = requests.post(SLACK_URL, data=json.dumps(json_message))
+        logger.info(f'Slack Response {response.status_code}')
     except requests.RequestException as err:
         logger.error('Post to Slack API encountered an error')
         logger.error(err, exc_info=True)
@@ -172,7 +170,7 @@ def send_slack_notification(notification_text, error=True):
 def check(event, context):
     """
     The Lambda handler. Queries DynamoDB, iterates over the returned clusters and sends Slack messages if they have
-    failed to check in within the last 5 minutes, or if they have recovered.
+    failed to check in within the last 15 minutes, or if they have recovered.
 
     :param event: (map) The Lambda event
     :param context: (map) The Lambda context
